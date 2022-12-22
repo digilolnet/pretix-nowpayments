@@ -1,0 +1,5 @@
+recursive-include pretix_nowpayments/static *
+recursive-include pretix_nowpayments/templates *
+recursive-include pretix_nowpayments/locale *
+include LICENSE
+exclude .gitlab-ci.yml
