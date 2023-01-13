@@ -45,10 +45,6 @@ class NowPayments(BasePaymentProvider):
     def init_api(self):
         if self.settings.get('endpoint') == 'sandbox':
             payment = NOWPaymentsSandbox(self.settings.get('api_key'))
-            # This is because the nowpayments library is broken, will
-            # remove these lines once my PR is merged to fix it.
-            payment._API_URL="https://api-sandbox.nowpayments.io/v1/{}"
-            payment._IS_SANDBOX=True
             return payment
         else:
             payment = NOWPayments(self.settings.get('api_key'))
