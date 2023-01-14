@@ -74,7 +74,13 @@ class NowPayments(BasePaymentProvider):
                     "Payment amount cannot be smaller than the minimum allowed amount")
                 return False
 
-            # set session vars and redirect to custom view here
+            # create payment here
+
+            # set session or get vars and redirect to custom view here
+            request.session['nowpayments_payment_amount'] = est_amount['estimated_amount']
+            request.session['nowpayments_payment_address'] = 'testaddr'
+
+            return build_absolute_uri(request.event, 'plugins:pretix_nowpayments:pay')
 
         except Exception as e:
             messages.error(request,

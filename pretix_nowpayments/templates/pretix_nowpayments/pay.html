@@ -1,0 +1,20 @@
+{% load compress %}
+{% load i18n %}
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ settings.PRETIX_INSTANCE_NAME }}</title>
+    {% compress css %}
+        <link rel="stylesheet" type="text/x-scss" href="{% static "pretixbase/scss/cachedfiles.scss" %}"/>
+    {% endcompress %}
+    {% compress js %}
+        <script type="text/javascript" src="{% static "jquery/js/jquery-2.1.1.min.js" %}"></script>
+    {% endcompress %}
+</head>
+<body>
+    <div class="container">
+	    <p>Send {{ amount }} to {{ address }}</p>
+    </div>
+</body>
+</html>
