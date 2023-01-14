@@ -42,7 +42,7 @@ class NowPayments(BasePaymentProvider):
             ])
         return d
 
-    def init_api(self):
+    def _init_api(self):
         if self.settings.get('endpoint') == 'sandbox':
             payment = NOWPaymentsSandbox(self.settings.get('api_key'))
             return payment
@@ -51,27 +51,35 @@ class NowPayments(BasePaymentProvider):
             return payment
 
     def checkout_prepare(self, request, cart):
-        nowp = self.init_api()
+        nowp = self._init_api()
         try:
             api_status = nowp.get_api_status()
             if api_status['message'] != 'OK':
                 messages.error("NOWPayments API is currently unavailable. Try again later.")
                 return False
-        except Exception as e:
-            messages.error(request,
-                '{}: {}'.format("We had trouble communicating with NOWPayments.", e))
-            return False
 
-        try:
             currencies = nowp.get_available_currencies()
             if 'xmr' not in currencies['currencies']:
                 messages.error("Monero is currently unavailable for payments.")
                 return False
+
+            logger.info("cart total: " + str(cart['total']))
+            min_amount = nowp.get_minimum_payment_amount('xmr')
+
+            # Retry this in case of 500, NOWPayments likes to throw that.
+            est_amount = nowp.get_estimate_price(cart['total'], 'eur', 'xmr')
+            logger.info("Min amount: " + str(min_amount['min_amount']) + ", est amount: " + str(est_amount['estimated_amount']))
+            if min_amount['min_amount'] > float(est_amount['estimated_amount']):
+                messages.error(request,
+                    "Payment amount cannot be smaller than the minimum allowed amount")
+                return False
+
+            # set session vars and redirect to custom view here
+
         except Exception as e:
             messages.error(request,
                 '{}: {}'.format("We had trouble communicating with NOWPayments.", e))
             return False
-
         return True
 
     def payment_is_valid_session(self, request):
