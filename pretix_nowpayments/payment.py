@@ -8,6 +8,7 @@ from django import forms
 from django.contrib import messages
 from django.template.loader import get_template
 
+from pretix.helpers.urls import build_absolute_uri as build_global_uri
 from pretix.base.decimal import round_decimal
 from pretix.base.models import Event, Order, OrderPayment, OrderRefund, Quota
 from pretix.base.payment import BasePaymentProvider, PaymentException
@@ -99,21 +100,30 @@ class NowPayments(BasePaymentProvider):
             messages.error(request,
                 "Payment amount cannot be smaller than the minimum allowed amount")
             return False
-
-        # create payment here
-
-        # set session or get vars and redirect to custom view here
-        request.session['nowpayments_payment_amount'] = est_amount['estimated_amount']
-        request.session['nowpayments_payment_address'] = 'testaddr'
-
-        return build_absolute_uri(request.event, 'plugins:pretix_nowpayments:pay')
+        return True
 
     def payment_is_valid_session(self, request):
         return True
 
-    def checkout_confirm_render(self, request) -> str:
+    def checkout_confirm_render(self, request):
         # Displayed when the user selected this provider on the 'confirm order'
         # page.
         template = get_template('pretix_nowpayments/checkout_payment_confirm.html')
         ctx = {'request': request, 'event': self.event, 'settings': self.settings}
         return template.render(ctx)
+
+    def execute_payment(self, request, order):
+        nowp = self._init_api()
+        try:
+            created_payment = nowp.create_payment(order.amount, 'eur', 'xmr',
+                ipn_callback_url = build_global_uri('plugins:pretix_nowpayments:webhook'),
+                order_id = order.id,
+                order_description = 'Order for {event}'.format(event=request.event.name))
+        except Exception as e:
+            raise PaymentException(
+                '{}: {}'.format("We had trouble communicating with NOWPayments.", e))
+
+        request.session['nowpayments_payment_amount'] = created_payment['pay_amount']
+        request.session['nowpayments_payment_address'] = created_payment['pay_address']
+
+        return build_absolute_uri(request.event, 'plugins:pretix_nowpayments:pay')
