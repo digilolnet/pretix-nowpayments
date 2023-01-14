@@ -52,41 +52,61 @@ class NowPayments(BasePaymentProvider):
 
     def checkout_prepare(self, request, cart):
         nowp = self._init_api()
+
         try:
             api_status = nowp.get_api_status()
-            if api_status['message'] != 'OK':
-                messages.error("NOWPayments API is currently unavailable. Try again later.")
-                return False
-
-            currencies = nowp.get_available_currencies()
-            if 'xmr' not in currencies['currencies']:
-                messages.error("Monero is currently unavailable for payments.")
-                return False
-
-            logger.info("cart total: " + str(cart['total']))
-            min_amount = nowp.get_minimum_payment_amount('xmr')
-
-            # Retry this in case of 500, NOWPayments likes to throw that.
-            est_amount = nowp.get_estimate_price(cart['total'], 'eur', 'xmr')
-            logger.info("Min amount: " + str(min_amount['min_amount']) + ", est amount: " + str(est_amount['estimated_amount']))
-            if min_amount['min_amount'] > float(est_amount['estimated_amount']):
-                messages.error(request,
-                    "Payment amount cannot be smaller than the minimum allowed amount")
-                return False
-
-            # create payment here
-
-            # set session or get vars and redirect to custom view here
-            request.session['nowpayments_payment_amount'] = est_amount['estimated_amount']
-            request.session['nowpayments_payment_address'] = 'testaddr'
-
-            return build_absolute_uri(request.event, 'plugins:pretix_nowpayments:pay')
-
         except Exception as e:
             messages.error(request,
                 '{}: {}'.format("We had trouble communicating with NOWPayments.", e))
             return False
-        return True
+        if api_status['message'] != 'OK':
+            messages.error("NOWPayments API is currently unavailable. Try again later.")
+            return False
+
+        try:
+            currencies = nowp.get_available_currencies()
+        except Exception as e:
+            messages.error(request,
+                '{}: {}'.format("We had trouble communicating with NOWPayments.", e))
+            return False
+        if 'xmr' not in currencies['currencies']:
+            messages.error("Monero is currently unavailable on NOWPayments.")
+            return False
+
+        try:
+            min_amount = nowp.get_minimum_payment_amount('xmr')
+        except Exception as e:
+            messages.error(request,
+                '{}: {}'.format("We had trouble communicating with NOWPayments.", e))
+            return False
+
+        # NOWPayments occasionally throws 500 on this method, retrying works.
+        for _ in range(3):
+            try:
+                est_amount = nowp.get_estimate_price(cart['total'], 'eur', 'xmr')
+            except Exception as e:
+                err = e
+                continue
+            else:
+                break
+        else:
+            # All attempts failed.
+            messages.error(request,
+                '{}: {}'.format("We had trouble communicating with NOWPayments.", e))
+            return False
+
+        if min_amount['min_amount'] > float(est_amount['estimated_amount']):
+            messages.error(request,
+                "Payment amount cannot be smaller than the minimum allowed amount")
+            return False
+
+        # create payment here
+
+        # set session or get vars and redirect to custom view here
+        request.session['nowpayments_payment_amount'] = est_amount['estimated_amount']
+        request.session['nowpayments_payment_address'] = 'testaddr'
+
+        return build_absolute_uri(request.event, 'plugins:pretix_nowpayments:pay')
 
     def payment_is_valid_session(self, request):
         return True
