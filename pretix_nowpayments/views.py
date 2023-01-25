@@ -1,23 +1,30 @@
 import json
 import logging
 
+from django.http import HttpResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django_scopes import scopes_disabled
 
+from pretix.base.settings import GlobalSettingsObject
 from pretix.multidomain.urlreverse import build_absolute_uri
 
 logger = logging.getLogger('pretix.plugins.nowpayments')
 
-@csrf_exempt
-@require_POST
 @scopes_disabled()
+@require_POST
+@csrf_exempt
 def webhook(request, *args, **kwargs):
     event_body = request.body.decode('utf-8').strip()
     event_json = json.loads(event_body)
     logger.info("Got callback: " + event_body)
     logger.info("HMAC: " + request.headers['x-nowpayments-sig'])
+    sorted_str = json.dumps(event_json, sort_keys=True)
+    logger.info("Sorted json: " + sorted_str)
+    gs = GlobalSettingsObject()
+    logger.info(request.event.settings.payment_nowpayments_ipn)
+    return HttpResponse(status=200)
 
 def pay(request, *args, **kwargs):
     address = request.session.get('nowpayments_payment_address', '')

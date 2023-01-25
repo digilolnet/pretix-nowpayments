@@ -11,7 +11,3 @@ event_patterns = [
         re_path(r'^pay/$', pay, name='pay')
     ]))
 ]
-
-urlpatterns = [
-    re_path(r'^_nowpayments/webhook/$', webhook, name='webhook')
-]

@@ -24,6 +24,7 @@ LOCAL_ONLY_CURRENCIES = ['EUR']
 class NowPayments(BasePaymentProvider):
     identifier = 'nowpayments'
     verbose_name = 'NOWPayments'
+    is_meta = True
 
     def __init__(self, event: Event):
         super().__init__(event)
@@ -39,7 +40,8 @@ class NowPayments(BasePaymentProvider):
                     choices=(
                         ('live', 'Use production API to accept money'),
                         ('sandbox', 'Use sandbox API to test')))),
-                ('api_key', forms.CharField(label='API key'))
+                ('api_key', forms.CharField(label='API key')),
+                ('ipn', forms.CharField(label='IPN secret key'))
             ])
         return d
 
@@ -116,7 +118,7 @@ class NowPayments(BasePaymentProvider):
         nowp = self._init_api()
         try:
             created_payment = nowp.create_payment(order.amount, 'eur', 'xmr',
-                ipn_callback_url = build_global_uri('plugins:pretix_nowpayments:webhook'),
+                ipn_callback_url = build_absolute_uri(request.event, 'plugins:pretix_nowpayments:webhook'),
                 order_id = order.id,
                 order_description = 'Order for {event}'.format(event=request.event.name))
         except Exception as e:
