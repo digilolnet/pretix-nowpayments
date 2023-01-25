@@ -1,5 +1,7 @@
 import json
 import logging
+import hmac
+import hashlib
 
 from django.http import HttpResponse
 from django.shortcuts import render
@@ -17,13 +19,31 @@ logger = logging.getLogger('pretix.plugins.nowpayments')
 @csrf_exempt
 def webhook(request, *args, **kwargs):
     event_body = request.body.decode('utf-8').strip()
-    event_json = json.loads(event_body)
-    logger.info("Got callback: " + event_body)
-    logger.info("HMAC: " + request.headers['x-nowpayments-sig'])
-    sorted_str = json.dumps(event_json, sort_keys=True)
-    logger.info("Sorted json: " + sorted_str)
-    gs = GlobalSettingsObject()
-    logger.info(request.event.settings.payment_nowpayments_ipn)
+    header_sig = request.headers.get('x-nowpayments-sig')
+    if header_sig == '':
+        logger.error("x-nowpayments-sig header is missing in callback.")
+        return HttpResponse(status=400)
+
+    try:
+        event_json = json.loads(event_body)
+        sorted_str = json.dumps(event_json, sort_keys=True, separators=(',', ':'))
+    except Exception as e:
+        logger.error("Failed to load or dump callback JSON: {}".format(str(e)))
+        return HttpResponse(status=400)
+
+    try:
+        ipn_secret = request.event.settings.payment_nowpayments_ipn
+        signature = hmac.new(ipn_secret.encode('ASCII'), sorted_str.encode('ASCII'),
+            hashlib.sha512).hexdigest()
+    except Exception as e:
+        logger.error("Failed to create HMAC: {}".format(str(e)))
+        return HttpResponse(status=500)
+
+    if signature != header_sig:
+        logger.error("HMAC doesn't match callback signature header.")
+        return HttpResponse(status=400)
+
+    logger.info("Sig: " + signature + ", Header: " + header_sig)
     return HttpResponse(status=200)
 
 def pay(request, *args, **kwargs):
