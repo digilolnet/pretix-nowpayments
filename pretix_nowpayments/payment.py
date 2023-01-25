@@ -25,6 +25,15 @@ class NowPayments(BasePaymentProvider):
     identifier = 'nowpayments'
     verbose_name = 'NOWPayments'
     is_meta = True
+    payment_form_fields = OrderedDict(
+        [
+            ('currency', forms.ChoiceField(
+                label='Currency',
+                initial='Monero',
+                choices=(
+                    ('xmr', 'Monero'),
+                    ('btc', 'Bitcoin'))))
+        ])
 
     def __init__(self, event: Event):
         super().__init__(event)
@@ -54,6 +63,12 @@ class NowPayments(BasePaymentProvider):
             return payment
 
     def checkout_prepare(self, request, cart):
+        form = self.payment_form(request)
+        if form.is_valid():
+            currency = form.cleaned_data['currency']
+            request.session['nowpayments_payment_currency'] = currency
+            logger.info("Selected: " + currency)
+
         nowp = self._init_api()
 
         try:
@@ -72,12 +87,12 @@ class NowPayments(BasePaymentProvider):
             messages.error(request,
                 '{}: {}'.format("We had trouble communicating with NOWPayments.", e))
             return False
-        if 'xmr' not in currencies['currencies']:
-            messages.error("Monero is currently unavailable on NOWPayments.")
+        if currency not in currencies['currencies']:
+            messages.error("The selected currency is currently unavailable on NOWPayments.")
             return False
 
         try:
-            min_amount = nowp.get_minimum_payment_amount('xmr')
+            min_amount = nowp.get_minimum_payment_amount(currency)
         except Exception as e:
             messages.error(request,
                 '{}: {}'.format("We had trouble communicating with NOWPayments.", e))
@@ -86,7 +101,7 @@ class NowPayments(BasePaymentProvider):
         # NOWPayments occasionally throws 500 on this method, retrying works.
         for _ in range(3):
             try:
-                est_amount = nowp.get_estimate_price(cart['total'], 'eur', 'xmr')
+                est_amount = nowp.get_estimate_price(cart['total'], 'eur', currency)
             except Exception as e:
                 err = e
                 continue
@@ -115,9 +130,10 @@ class NowPayments(BasePaymentProvider):
         return template.render(ctx)
 
     def execute_payment(self, request, order):
+        currency = request.session['nowpayments_payment_currency']
         nowp = self._init_api()
         try:
-            created_payment = nowp.create_payment(order.amount, 'eur', 'xmr',
+            created_payment = nowp.create_payment(order.amount, 'eur', currency,
                 ipn_callback_url = build_absolute_uri(request.event, 'plugins:pretix_nowpayments:webhook'),
                 order_id = order.id,
                 order_description = 'Order for {event}'.format(event=request.event.name))

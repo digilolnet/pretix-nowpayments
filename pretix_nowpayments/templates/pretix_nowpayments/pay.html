@@ -15,7 +15,8 @@
 </head>
 <body>
     <div class="container">
-	    <p>Send {{ amount }} to {{ address }}</p>
+	    <p>Send {{ amount }} {{ currency }} to {{ address }}</p>
+            <img src="data:image/jpeg;base64,{{ qr }}">
     </div>
 </body>
 </html>

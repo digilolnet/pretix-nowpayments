@@ -29,10 +29,15 @@ def webhook(request, *args, **kwargs):
 def pay(request, *args, **kwargs):
     address = request.session.get('nowpayments_payment_address', '')
     amount = request.session.get('nowpayments_payment_amount', 0)
-    if address == '' or amount == 0:
+    currency = request.session.get('nowpayments_payment_currency', '')
+
+    if address == '' or amount == 0 or currency == '':
         messages.error(request, 'An error occured, please try again.')
+
     return render(request, 'pretix_nowpayments/pay.html', {
         'url': build_absolute_uri(request.event, 'plugins:pretix_nowpayments:pay'),
         'address': address,
-        'amount': amount
+        'amount': amount,
+        'currency': currency,
+        'qr': ' '
     })
