@@ -4,13 +4,14 @@ import hmac
 import hashlib
 
 from django.http import HttpResponse
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django_scopes import scopes_disabled
 
+from pretix.base.models import OrderPayment
 from pretix.base.settings import GlobalSettingsObject
-from pretix.multidomain.urlreverse import build_absolute_uri
+from pretix.multidomain.urlreverse import build_absolute_uri, eventreverse
 
 logger = logging.getLogger('pretix.plugins.nowpayments')
 
@@ -44,9 +45,37 @@ def webhook(request, *args, **kwargs):
         return HttpResponse(status=400)
 
     logger.info("Sig: " + signature + ", Header: " + header_sig)
+
+    if event_json['payment_status'] != "finished":
+        logger.info("Callback payment_status isn't finished, ignoring.")
+        return HttpResponse(status=200)
+
+    try:
+        payment = OrderPayment.objects.get(id=event_json['order_id'])
+    except OrderPayment.DoesNotExist:
+        logger.info("Received callback but order_id doesn't match any.")
+        return HttpResponse(status=500)
+
+    # TODO: handle Quota.QuotaExceededException
+    payment.confirm()
+
     return HttpResponse(status=200)
 
 def pay(request, *args, **kwargs):
+    order_id = request.session.get('order_id')
+
+    try:
+        payment = OrderPayment.objects.get(id=order_id)
+    except OrderPayment.DoesNotExist:
+        logger.info("Received callback but order_id doesn't match any.")
+        return HttpResponse(status=500)
+
+    if payment.state == OrderPayment.PAYMENT_STATE_CONFIRMED:
+        return redirect(eventreverse(request.event, 'presale:event.order', kwargs={
+            'order': payment.order.code,
+            'secret': payment.order.secret
+        }) + '?paid=yes')
+
     address = request.session.get('nowpayments_payment_address', '')
     amount = request.session.get('nowpayments_payment_amount', 0)
     currency = request.session.get('nowpayments_payment_currency', '')

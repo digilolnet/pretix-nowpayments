@@ -141,7 +141,9 @@ class NowPayments(BasePaymentProvider):
             raise PaymentException(
                 '{}: {}'.format("We had trouble communicating with NOWPayments.", e))
 
+        logger.info("order id: " + str(order.id))
         request.session['nowpayments_payment_amount'] = created_payment['pay_amount']
         request.session['nowpayments_payment_address'] = created_payment['pay_address']
+        request.session['order_id'] = order.id
 
         return build_absolute_uri(request.event, 'plugins:pretix_nowpayments:pay')
