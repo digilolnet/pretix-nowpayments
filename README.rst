@@ -45,11 +45,11 @@ License
 -------
 
 
-Copyright 2022 Digilol
+Copyright 2023 İrem Kuyucu at [Digilol](https://digilol.net).
 
-Released under the terms of the Apache License 2.0
+Released under the terms of the GNU Affero General Public License version 3.
 
-
+Would you like to have a custom Pretix plugin? Reach us at [digilol.net](https://digilol.net).
 
 .. _pretix: https://github.com/pretix/pretix
 .. _pretix development setup: https://docs.pretix.eu/en/latest/development/setup.html
