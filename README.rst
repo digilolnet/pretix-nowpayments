@@ -45,12 +45,12 @@ License
 -------
 
 
-Copyright 2023 İrem Kuyucu at `digilol`_.
+Copyright 2023 İrem Kuyucu at `Digilol`_.
 
 Released under the terms of the GNU Affero General Public License version 3.
 
-Would you like to have a custom Pretix plugin? Reach us at `digilol`_.
+Would you like to have a custom Pretix plugin? Reach us at `Digilol`_.
 
-.. _digilol: https://digilol.net
+.. _Digilol: https://digilol.net
 .. _pretix: https://github.com/pretix/pretix
 .. _pretix development setup: https://docs.pretix.eu/en/latest/development/setup.html
