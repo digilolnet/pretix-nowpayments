@@ -1,0 +1,16 @@
+.payment-qr {
+	max-width: 300px;
+	margin-bottom: 1em;
+}
+
+.address {
+	word-break: break-all;
+}
+
+p {
+	font-size: 1.4em;
+}
+
+footer p {
+	font-size: 1.2em;
+}

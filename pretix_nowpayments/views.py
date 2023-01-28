@@ -2,6 +2,10 @@ import json
 import logging
 import hmac
 import hashlib
+import base64
+from io import BytesIO
+
+import qrcode
 
 from django.http import HttpResponse
 from django.shortcuts import render, redirect
@@ -81,12 +85,22 @@ def pay(request, *args, **kwargs):
     currency = request.session.get('nowpayments_payment_currency', '')
 
     if address == '' or amount == 0 or currency == '':
-        messages.error(request, 'An error occured, please try again.')
+        messages.error(request, "An error occured, please try again.")
+
+    uri = "monero:"
+    if currency == "btc":
+        uri = "bitcoin:"
+    uri += "{}?amount={}".format(address, amount)
+
+    qr_img = qrcode.make(uri)
+    stream = BytesIO()
+    qr_img.save(stream)
+    qr_str = base64.b64encode(stream.getvalue()).decode('utf-8')
 
     return render(request, 'pretix_nowpayments/pay.html', {
         'url': build_absolute_uri(request.event, 'plugins:pretix_nowpayments:pay'),
         'address': address,
         'amount': amount,
-        'currency': currency,
-        'qr': ' '
+        'currency': currency.upper(),
+        'qr': qr_str
     })

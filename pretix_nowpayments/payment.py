@@ -75,7 +75,7 @@ class NowPayments(BasePaymentProvider):
             api_status = nowp.get_api_status()
         except Exception as e:
             messages.error(request,
-                '{}: {}'.format("We had trouble communicating with NOWPayments.", e))
+                '{}: {}'.format("Failed to get NOWPayments API status.", e))
             return False
         if api_status['message'] != 'OK':
             messages.error("NOWPayments API is currently unavailable. Try again later.")
@@ -85,7 +85,7 @@ class NowPayments(BasePaymentProvider):
             currencies = nowp.get_available_currencies()
         except Exception as e:
             messages.error(request,
-                '{}: {}'.format("We had trouble communicating with NOWPayments.", e))
+                '{}: {}'.format("Failed to get available currencies from NOWPayments.", e))
             return False
         if currency not in currencies['currencies']:
             messages.error("The selected currency is currently unavailable on NOWPayments.")
@@ -95,11 +95,11 @@ class NowPayments(BasePaymentProvider):
             min_amount = nowp.get_minimum_payment_amount(currency)
         except Exception as e:
             messages.error(request,
-                '{}: {}'.format("We had trouble communicating with NOWPayments.", e))
+                '{}: {}'.format("Failed to get minimum payment amount from NOWPayments.", e))
             return False
 
         # NOWPayments occasionally throws 500 on this method, retrying works.
-        for _ in range(3):
+        for _ in range(5):
             try:
                 est_amount = nowp.get_estimate_price(cart['total'], 'eur', currency)
             except Exception as e:
@@ -110,12 +110,12 @@ class NowPayments(BasePaymentProvider):
         else:
             # All attempts failed.
             messages.error(request,
-                '{}: {}'.format("We had trouble communicating with NOWPayments.", e))
+                '{}: {}'.format("Failed to get price estimate from NOWPayments.", e))
             return False
 
         if min_amount['min_amount'] > float(est_amount['estimated_amount']):
             messages.error(request,
-                "Payment amount cannot be smaller than the minimum allowed amount")
+                "Payment amount cannot be smaller than the minimum allowed amount.")
             return False
         return True
 
@@ -139,7 +139,7 @@ class NowPayments(BasePaymentProvider):
                 order_description = 'Order for {event}'.format(event=request.event.name))
         except Exception as e:
             raise PaymentException(
-                '{}: {}'.format("We had trouble communicating with NOWPayments.", e))
+                '{}: {}'.format("Failed to create payment on NOWPayments.", e))
 
         logger.info("order id: " + str(order.id))
         request.session['nowpayments_payment_amount'] = created_payment['pay_amount']
