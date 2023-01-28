@@ -5,7 +5,6 @@
 <html>
 <head>
     <title>Pay via NOWPayments.io</title>
-    <meta http-equiv="refresh" content="30">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     {% compress css %}
     <link rel="stylesheet" type="text/x-scss" href="{% static "pretixbase/scss/cachedfiles.scss" %}"/>
@@ -14,10 +13,8 @@
 </head>
 <body>
     <div class="container">
-      <h3>Send {{ amount }} {{ currency }} to</h3>
-      <img class="payment-qr" src="data:image/jpeg;base64,{{ qr }}">
-      <p class="address">{{ address }}</p>
-      <p>Keep this page open. We will redirect you to your ticket once we receive your payment.</p>
+      <h3>Your payment was received but we ran out of tickets!</h3>
+      <p>Your order code: {{ order_code }}<br>Please contact us at: <a href="mailto:{{email}}">{{ email }}</a></p>
     </div>
     <footer>
       <p>Powered by <a href="https://digilol.net">Digilol</a></p>

@@ -66,7 +66,8 @@ class NowPayments(BasePaymentProvider):
                         ('live', 'Use production API to accept money'),
                         ('sandbox', 'Use sandbox API to test')))),
                 ('api_key', forms.CharField(label='API key')),
-                ('ipn', forms.CharField(label='IPN secret key'))
+                ('ipn', forms.CharField(label='IPN secret key')),
+                ('email', forms.CharField(label='Contact e-mail'))
             ])
         return d
 
@@ -145,21 +146,20 @@ class NowPayments(BasePaymentProvider):
         ctx = {'request': request, 'event': self.event, 'settings': self.settings}
         return template.render(ctx)
 
-    def execute_payment(self, request, order):
+    def execute_payment(self, request, order_payment):
         currency = request.session['nowpayments_payment_currency']
         nowp = self._init_api()
         try:
-            created_payment = nowp.create_payment(order.amount, 'eur', currency,
+            created_payment = nowp.create_payment(order_payment.amount, 'eur', currency,
                 ipn_callback_url = build_absolute_uri(request.event, 'plugins:pretix_nowpayments:webhook'),
-                order_id = order.id,
-                order_description = 'Order for {event}'.format(event=request.event.name))
+                order_id = order_payment.id,
+                order_description = 'Order #{} for {}'.format(order_payment.order.code, request.event.name))
         except Exception as e:
             raise PaymentException(
                 '{}: {}'.format("Failed to create payment on NOWPayments.", e))
 
-        logger.info("order id: " + str(order.id))
         request.session['nowpayments_payment_amount'] = created_payment['pay_amount']
         request.session['nowpayments_payment_address'] = created_payment['pay_address']
-        request.session['order_id'] = order.id
+        request.session['order_id'] = order_payment.id
 
         return build_absolute_uri(request.event, 'plugins:pretix_nowpayments:pay')

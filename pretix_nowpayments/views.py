@@ -76,8 +76,12 @@ def webhook(request, *args, **kwargs):
         logger.info("Received callback but order_id doesn't match any.")
         return HttpResponse(status=500)
 
-    # TODO: handle Quota.QuotaExceededException
-    payment.confirm()
+    try:
+        payment.confirm()
+    except Quota.QuotaExceededException as e:
+        payment.fail(info=json.dumps({'QuotaExceeded': True}))
+        logger.error("Payment was received but there are no ticket(s) left for "
+                     "order_code: {}".format(payment.order.code))
 
     return HttpResponse(status=200)
 
@@ -87,8 +91,18 @@ def pay(request, *args, **kwargs):
     try:
         payment = OrderPayment.objects.get(id=order_id)
     except OrderPayment.DoesNotExist:
-        logger.info("Received callback but order_id doesn't match any.")
+        logger.info("Order with this ID doesn't exist.")
         return HttpResponse(status=500)
+
+    payment_info = json.loads(payment.info)
+
+    if (payment.state == OrderPayment.PAYMENT_STATE_FAILED and
+        payment_info.get('QuotaExceeded', False) == True):
+        return render(request, 'pretix_nowpayments/failed.html', {
+            'url': build_absolute_uri(request.event, 'plugins:pretix_nowpayments:pay'),
+            'email': request.event.settings.payment_nowpayments_email,
+            'order_code': payment.order.code
+        })
 
     if payment.state == OrderPayment.PAYMENT_STATE_CONFIRMED:
         return redirect(eventreverse(request.event, 'presale:event.order', kwargs={
