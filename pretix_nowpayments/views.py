@@ -64,22 +64,21 @@ def webhook(request, *args, **kwargs):
         logger.error("HMAC doesn't match callback signature header.")
         return HttpResponse(status=400)
 
-    logger.info("Sig: " + signature + ", Header: " + header_sig)
-
     if event_json['payment_status'] != "finished":
         logger.info("Callback payment_status isn't finished, ignoring.")
         return HttpResponse(status=200)
 
     try:
-        payment = OrderPayment.objects.get(id=event_json['order_id'])
+        payment = OrderPayment.objects.get(order__code=event_json['order_id'])
     except OrderPayment.DoesNotExist:
-        logger.info("Received callback but order_id doesn't match any.")
+        logger.info("Received callback but order code doesn't match any.")
         return HttpResponse(status=500)
 
     try:
         payment.confirm()
     except Quota.QuotaExceededException as e:
-        payment.fail(info=json.dumps({'QuotaExceeded': True}))
+        payment.info = json.dumps({'QuotaExceeded': True})
+        payment.save()
         logger.error("Payment was received but there are no ticket(s) left for "
                      "order_code: {}".format(payment.order.code))
 
@@ -94,15 +93,17 @@ def pay(request, *args, **kwargs):
         logger.info("Order with this ID doesn't exist.")
         return HttpResponse(status=500)
 
-    payment_info = json.loads(payment.info)
-
-    if (payment.state == OrderPayment.PAYMENT_STATE_FAILED and
-        payment_info.get('QuotaExceeded', False) == True):
-        return render(request, 'pretix_nowpayments/failed.html', {
-            'url': build_absolute_uri(request.event, 'plugins:pretix_nowpayments:pay'),
-            'email': request.event.settings.payment_nowpayments_email,
-            'order_code': payment.order.code
-        })
+    if payment.info is not None:
+        try:
+            payment_info = json.loads(payment.info)
+            if payment_info.get('QuotaExceeded', False) == True:
+                return render(request, 'pretix_nowpayments/failed.html', {
+                    'url': build_absolute_uri(request.event, 'plugins:pretix_nowpayments:pay'),
+                    'email': request.event.settings.payment_nowpayments_email,
+                    'order_code': payment.order.code
+                })
+        except Exception as e:
+            logger.error("Exception occured while checking payment info: {}".format(str(e)))
 
     if payment.state == OrderPayment.PAYMENT_STATE_CONFIRMED:
         return redirect(eventreverse(request.event, 'presale:event.order', kwargs={

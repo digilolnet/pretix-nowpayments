@@ -140,8 +140,6 @@ class NowPayments(BasePaymentProvider):
         return True
 
     def checkout_confirm_render(self, request):
-        # Displayed when the user selected this provider on the 'confirm order'
-        # page.
         template = get_template('pretix_nowpayments/checkout_payment_confirm.html')
         ctx = {'request': request, 'event': self.event, 'settings': self.settings}
         return template.render(ctx)
@@ -152,7 +150,7 @@ class NowPayments(BasePaymentProvider):
         try:
             created_payment = nowp.create_payment(order_payment.amount, 'eur', currency,
                 ipn_callback_url = build_absolute_uri(request.event, 'plugins:pretix_nowpayments:webhook'),
-                order_id = order_payment.id,
+                order_id = order_payment.order.code,
                 order_description = 'Order #{} for {}'.format(order_payment.order.code, request.event.name))
         except Exception as e:
             raise PaymentException(
@@ -161,5 +159,6 @@ class NowPayments(BasePaymentProvider):
         request.session['nowpayments_payment_amount'] = created_payment['pay_amount']
         request.session['nowpayments_payment_address'] = created_payment['pay_address']
         request.session['order_id'] = order_payment.id
+        request.session['order_code'] = order_payment.order.code
 
         return build_absolute_uri(request.event, 'plugins:pretix_nowpayments:pay')
