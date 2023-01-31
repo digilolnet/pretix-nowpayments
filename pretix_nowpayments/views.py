@@ -118,12 +118,20 @@ def pay(request, *args, **kwargs):
     if address == '' or amount == 0 or currency == '':
         messages.error(request, "An error occured, please try again.")
 
-    uri = "monero:"
-    if currency == "btc":
-        uri = "bitcoin:"
-    uri += "{}?amount={}".format(address, amount)
+    if currency == "xmr":
+        uri = "monero:{}?tx_amount={}".format(address, amount)
+    elif currency == "btc":
+        uri = "bitcoin:{}?amount={}".format(address, amount)
 
-    qr_img = qrcode.make(uri)
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(uri)
+    qr.make()
+    qr_img = qr.make_image()
     stream = BytesIO()
     qr_img.save(stream)
     qr_str = base64.b64encode(stream.getvalue()).decode('utf-8')
