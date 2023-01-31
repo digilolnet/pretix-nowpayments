@@ -15,6 +15,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import logging
+from time import sleep
 from collections import OrderedDict
 
 from nowpayments import NOWPayments
@@ -98,36 +99,52 @@ class NowPayments(BasePaymentProvider):
             messages.error("NOWPayments API is currently unavailable. Try again later.")
             return False
 
-        try:
-            currencies = nowp.get_available_currencies()
-        except Exception as e:
-            messages.error(request,
-                '{}: {}'.format("Failed to get available currencies from NOWPayments.", e))
-            return False
-        if currency not in currencies['currencies']:
-            messages.error("The selected currency is currently unavailable on NOWPayments.")
-            return False
-
-        try:
-            min_amount = nowp.get_minimum_payment_amount(currency)
-        except Exception as e:
-            messages.error(request,
-                '{}: {}'.format("Failed to get minimum payment amount from NOWPayments.", e))
-            return False
-
-        # NOWPayments occasionally throws 500 on this method, retrying works.
+        # Some NOWPayments API endpoints can be unstable, retrying works.
         for _ in range(5):
             try:
-                est_amount = nowp.get_estimate_price(cart['total'], 'eur', currency)
+                currencies = nowp.get_available_currencies()
             except Exception as e:
                 err = e
+                sleep(0.5)
                 continue
             else:
                 break
         else:
             # All attempts failed.
             messages.error(request,
-                '{}: {}'.format("Failed to get price estimate from NOWPayments.", e))
+                '{}: {}'.format("Try again. Failed to get available currencies from NOWPayments.", err))
+            return False
+
+        if currency not in currencies['currencies']:
+            messages.error("The selected currency is currently unavailable on NOWPayments.")
+            return False
+
+        for _ in range(5):
+            try:
+                min_amount = nowp.get_minimum_payment_amount(currency)
+            except Exception as e:
+                err = e
+                sleep(0.5)
+                continue
+            else:
+                break
+        else:
+            messages.error(request,
+                '{}: {}'.format("Try again. Failed to get minimum payment amount from NOWPayments.", err))
+            return False
+
+        for _ in range(5):
+            try:
+                est_amount = nowp.get_estimate_price(cart['total'], 'eur', currency)
+            except Exception as e:
+                err = e
+                sleep(0.5)
+                continue
+            else:
+                break
+        else:
+            messages.error(request,
+                '{}: {}'.format("Try again. Failed to get price estimate from NOWPayments.", err))
             return False
 
         if min_amount['min_amount'] > float(est_amount['estimated_amount']):
