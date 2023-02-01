@@ -163,15 +163,24 @@ class NowPayments(BasePaymentProvider):
 
     def execute_payment(self, request, order_payment):
         currency = request.session['nowpayments_payment_currency']
+        callback_url = build_absolute_uri(request.event, 'plugins:pretix_nowpayments:webhook')
+        order_desc = 'Order #{} for {}'.format(order_payment.order.code, request.event.name) 
         nowp = self._init_api()
-        try:
-            created_payment = nowp.create_payment(order_payment.amount, 'eur', currency,
-                ipn_callback_url = build_absolute_uri(request.event, 'plugins:pretix_nowpayments:webhook'),
-                order_id = order_payment.order.code,
-                order_description = 'Order #{} for {}'.format(order_payment.order.code, request.event.name))
-        except Exception as e:
+
+        for _ in range(5):
+            try:
+                created_payment = nowp.create_payment(order_payment.amount, 'eur', currency,
+                    ipn_callback_url = callback_url, order_id = order_payment.order.code,
+                    order_description = order_desc)
+            except Exception as e:
+                err = e
+                sleep(0.5)
+                continue
+            else:
+                break
+        else:
             raise PaymentException(
-                '{}: {}'.format("Failed to create payment on NOWPayments.", e))
+                '{}: {}'.format("Failed to create payment on NOWPayments.", err))
 
         request.session['nowpayments_payment_amount'] = created_payment['pay_amount']
         request.session['nowpayments_payment_address'] = created_payment['pay_address']
