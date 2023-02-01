@@ -73,6 +73,8 @@ def webhook(request, *args, **kwargs):
     except OrderPayment.DoesNotExist:
         logger.info("Received callback but order code doesn't match any.")
         return HttpResponse(status=500)
+    except OrderPayment.MultipleObjectsReturned:
+        payment = OrderPayment.objects.filter(order__code=event_json['order_id']).last()
 
     try:
         payment.confirm()
@@ -92,6 +94,8 @@ def pay(request, *args, **kwargs):
     except OrderPayment.DoesNotExist:
         logger.info("Order with this ID doesn't exist.")
         return HttpResponse(status=500)
+    except OrderPayment.MultipleObjectsReturned:
+        payment = OrderPayment.objects.filter(id=order_id).last()
 
     if payment.info is not None:
         try:
