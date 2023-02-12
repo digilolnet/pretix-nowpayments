@@ -80,17 +80,19 @@ def webhook(request, *args, **kwargs):
         payment.info = json.dumps(info_json)
         payment.save()
 
-    if event_json['payment_status'] != "finished":
+    evt_status = event_json['payment_status']
+    if evt_status != "confirmed" and evt_status != "sending" and evt_status != "finished":
         return HttpResponse(status=200)
 
-    try:
-        payment.confirm()
-    except Quota.QuotaExceededException as e:
-        info_json = json.loads(payment.info)
-        info_json['QuotaExceeded'] = True
-        payment.info = json.dumps(info_json)
-        payment.save()
-        logger.error("Payment was received but there are no ticket(s) left for "
+    if payment.state != OrderPayment.PAYMENT_STATE_CONFIRMED:
+        try:
+            payment.confirm()
+        except Quota.QuotaExceededException as e:
+            info_json = json.loads(payment.info)
+            info_json['QuotaExceeded'] = True
+            payment.info = json.dumps(info_json)
+            payment.save()
+            logger.error("Payment was received but there are no ticket(s) left for "
                      "order_code: {}".format(payment.order.code))
 
     return HttpResponse(status=200)
