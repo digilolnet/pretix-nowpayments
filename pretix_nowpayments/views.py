@@ -64,22 +64,31 @@ def webhook(request, *args, **kwargs):
         logger.error("HMAC doesn't match callback signature header.")
         return HttpResponse(status=400)
 
-    if event_json['payment_status'] != "finished":
-        logger.info("Callback payment_status isn't finished, ignoring.")
-        return HttpResponse(status=200)
+    logger.info("Received and verified callback: {}".format(event_body))
 
     try:
         payment = OrderPayment.objects.get(order__code=event_json['order_id'])
     except OrderPayment.DoesNotExist:
-        logger.info("Received callback but order code doesn't match any.")
+        logger.info("Received callback but order code doesn't match any: {}".format(event_json['order_id']))
         return HttpResponse(status=500)
     except OrderPayment.MultipleObjectsReturned:
         payment = OrderPayment.objects.filter(order__code=event_json['order_id']).last()
 
+    if payment.info is not None:
+        info_json = json.loads(payment.info)
+        info_json['callback'] = event_json
+        payment.info = json.dumps(info_json)
+        payment.save()
+
+    if event_json['payment_status'] != "finished":
+        return HttpResponse(status=200)
+
     try:
         payment.confirm()
     except Quota.QuotaExceededException as e:
-        payment.info = json.dumps({'QuotaExceeded': True})
+        info_json = json.loads(payment.info)
+        info_json['QuotaExceeded'] = True
+        payment.info = json.dumps(info_json)
         payment.save()
         logger.error("Payment was received but there are no ticket(s) left for "
                      "order_code: {}".format(payment.order.code))
@@ -106,6 +115,7 @@ def pay(request, *args, **kwargs):
                     'email': request.event.settings.payment_nowpayments_email,
                     'order_code': payment.order.code
                 })
+            payment_status = payment_info.get('callback', {}).get('payment_status', 'waiting')
         except Exception as e:
             logger.error("Exception occured while checking payment info: {}".format(str(e)))
 
@@ -145,5 +155,6 @@ def pay(request, *args, **kwargs):
         'address': address,
         'amount': amount,
         'currency': currency.upper(),
-        'qr': qr_str
+        'qr': qr_str,
+        'status': payment_status
     })
