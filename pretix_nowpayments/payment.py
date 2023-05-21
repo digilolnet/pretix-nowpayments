@@ -35,9 +35,6 @@ from pretix.multidomain.urlreverse import build_absolute_uri
 
 logger = logging.getLogger('pretix.plugins.nowpayments')
 
-SUPPORTED_CURRENCIES = ['EUR']
-LOCAL_ONLY_CURRENCIES = ['EUR']
-
 class NowPayments(BasePaymentProvider):
     identifier = 'nowpayments'
     verbose_name = 'NOWPayments'
@@ -135,7 +132,7 @@ class NowPayments(BasePaymentProvider):
 
         for _ in range(5):
             try:
-                est_amount = nowp.get_estimate_price(cart['total'], 'eur', currency)
+                est_amount = nowp.get_estimate_price(cart['total'], self.event.currency.lower(), currency)
             except Exception as e:
                 err = e
                 sleep(0.5)
@@ -169,7 +166,7 @@ class NowPayments(BasePaymentProvider):
 
         for _ in range(5):
             try:
-                created_payment = nowp.create_payment(order_payment.amount, 'eur', currency,
+                created_payment = nowp.create_payment(order_payment.amount, self.event.currency.lower(), currency,
                     ipn_callback_url = callback_url, order_id = order_payment.order.code,
                     order_description = order_desc)
             except Exception as e:
