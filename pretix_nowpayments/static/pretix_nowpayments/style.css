@@ -11,6 +11,6 @@ p {
 	font-size: 1.4em;
 }
 
-footer p {
-	font-size: 1.2em;
+footer {
+	margin-top: 3em;
 }

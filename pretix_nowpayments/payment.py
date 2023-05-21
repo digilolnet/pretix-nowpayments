@@ -65,7 +65,7 @@ class NowPayments(BasePaymentProvider):
                         ('sandbox', 'Use sandbox API to test')))),
                 ('api_key', forms.CharField(label='API key')),
                 ('ipn', forms.CharField(label='IPN secret key')),
-                ('email', forms.CharField(label='Contact e-mail'))
+                ('email', forms.EmailField(label='Contact e-mail'))
             ])
         return d
 
