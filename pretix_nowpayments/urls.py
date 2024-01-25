@@ -14,8 +14,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from django.conf.urls import re_path
-from django.urls import include
+from django.conf.urls import include
+from django.urls import re_path
 
 from pretix.multidomain import event_url
 
